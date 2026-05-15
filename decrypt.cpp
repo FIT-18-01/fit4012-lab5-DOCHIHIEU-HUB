@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include "structures.h"
+#include <vector>
 
 using namespace std;
 
@@ -124,7 +125,6 @@ void AESDecrypt(unsigned char * encryptedMessage, unsigned char * expandedKey, u
 
 	InitialRound(state, expandedKey+160);
 
-	int numberOfRounds = 9;
 
 	for (int i = 8; i >= 0; i--) {
 		Round(state, expandedKey + (16 * (i + 1)));
@@ -146,7 +146,7 @@ int main() {
 
 	// Read in the message from message.aes (binary)
 	ifstream infile("message.aes", ios::in | ios::binary);
-	vector<unsigned char> encryptedMessage;
+	std::vector<unsigned char> encryptedMessage;
 	if (infile.is_open()) {
 		infile.seekg(0, ios::end);
 		size_t filesize = infile.tellg();
@@ -189,7 +189,7 @@ int main() {
 	KeyExpansion(key, expandedKey);
 	
 	size_t messageLen = encryptedMessage.size();
-	vector<unsigned char> decryptedMessage(messageLen);
+	std::vector<unsigned char> decryptedMessage(messageLen);
 	for (size_t i = 0; i < messageLen; i += 16) {
 		AESDecrypt(&encryptedMessage[i], expandedKey, &decryptedMessage[i]);
 	}
