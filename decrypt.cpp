@@ -144,33 +144,21 @@ int main() {
 	cout << " 128-bit AES Decryption Tool " << endl;
 	cout << "=============================" << endl;
 
-	// Read in the message from message.aes
-	string msgstr;
-	ifstream infile;
-	infile.open("message.aes", ios::in | ios::binary);
-
-	if (infile.is_open())
-	{
-		getline(infile, msgstr); // The first line of file is the message
-		cout << "Read in encrypted message from message.aes" << endl;
+	// Read in the message from message.aes (binary)
+	ifstream infile("message.aes", ios::in | ios::binary);
+	vector<unsigned char> encryptedMessage;
+	if (infile.is_open()) {
+		infile.seekg(0, ios::end);
+		size_t filesize = infile.tellg();
+		infile.seekg(0, ios::beg);
+		encryptedMessage.resize(filesize);
+		infile.read(reinterpret_cast<char*>(encryptedMessage.data()), filesize);
 		infile.close();
+		cout << "Read in encrypted message from message.aes" << endl;
+	} else {
+		cout << "Unable to open file" << endl;
+		return 1;
 	}
-
-	else cout << "Unable to open file";
-
-	char * msg = new char[msgstr.size()+1];
-
-	strcpy(msg, msgstr.c_str());
-
-	int n = strlen((const char*)msg);
-
-	unsigned char * encryptedMessage = new unsigned char[n];
-	for (int i = 0; i < n; i++) {
-		encryptedMessage[i] = (unsigned char)msg[i];
-	}
-
-	// Free memory
-	delete[] msg;
 
 	// Read in the key
 	string keystr;
@@ -200,23 +188,34 @@ int main() {
 
 	KeyExpansion(key, expandedKey);
 	
-	int messageLen = strlen((const char *)encryptedMessage);
+	size_t messageLen = encryptedMessage.size();
+	vector<unsigned char> decryptedMessage(messageLen);
+	for (size_t i = 0; i < messageLen; i += 16) {
+		AESDecrypt(&encryptedMessage[i], expandedKey, &decryptedMessage[i]);
+	}
 
-	unsigned char * decryptedMessage = new unsigned char[messageLen];
-
-	for (int i = 0; i < messageLen; i += 16) {
-		AESDecrypt(encryptedMessage + i, expandedKey, decryptedMessage + i);
+	// Remove PKCS#7 padding
+	unsigned char padVal = decryptedMessage[messageLen - 1];
+	size_t outputLen = messageLen;
+	if (padVal > 0 && padVal <= 16) {
+		bool valid = true;
+		for (size_t i = messageLen - padVal; i < messageLen; i++) {
+			if (decryptedMessage[i] != padVal) {
+				valid = false;
+				break;
+			}
+		}
+		if (valid) outputLen = messageLen - padVal;
 	}
 
 	cout << "Decrypted message in hex:" << endl;
-	for (int i = 0; i < messageLen; i++) {
-		cout << hex << (int)decryptedMessage[i];
-		cout << " ";
+	for (size_t i = 0; i < outputLen; i++) {
+		cout << hex << (int)decryptedMessage[i] << " ";
 	}
 	cout << endl;
 	cout << "Decrypted message: ";
-	for (int i = 0; i < messageLen; i++) {
-		cout << decryptedMessage[i];
+	for (size_t i = 0; i < outputLen; i++) {
+		cout << static_cast<char>(decryptedMessage[i]);
 	}
 	cout << endl;
 

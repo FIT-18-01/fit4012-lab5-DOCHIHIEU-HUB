@@ -141,32 +141,26 @@ int main() {
 	cout << " 128-bit AES Encryption Tool   " << endl;
 	cout << "=============================" << endl;
 
-	char message[1024];
-
+	string inputStr;
 	cout << "Enter the message to encrypt: ";
-	cin.getline(message, sizeof(message));
-	cout << message << endl;
+	getline(cin, inputStr);
+	cout << inputStr << endl;
 
-	// Pad message to 16 bytes
-	int originalLen = strlen((const char *)message);
+	// PKCS#7 padding
+	int originalLen = inputStr.size();
+	int padLen = 16 - (originalLen % 16);
+	if (padLen == 0) padLen = 16;
+	int paddedMessageLen = originalLen + padLen;
 
-	int paddedMessageLen = originalLen;
-
-	if ((paddedMessageLen % 16) != 0) {
-		paddedMessageLen = (paddedMessageLen / 16 + 1) * 16;
+	vector<unsigned char> paddedMessage(paddedMessageLen);
+	for (int i = 0; i < originalLen; i++) {
+		paddedMessage[i] = static_cast<unsigned char>(inputStr[i]);
+	}
+	for (int i = originalLen; i < paddedMessageLen; i++) {
+		paddedMessage[i] = static_cast<unsigned char>(padLen);
 	}
 
-	unsigned char * paddedMessage = new unsigned char[paddedMessageLen];
-	for (int i = 0; i < paddedMessageLen; i++) {
-		if (i >= originalLen) {
-			paddedMessage[i] = 0;
-		}
-		else {
-			paddedMessage[i] = message[i];
-		}
-	}
-
-	unsigned char * encryptedMessage = new unsigned char[paddedMessageLen];
+	vector<unsigned char> encryptedMessage(paddedMessageLen);
 
 	string str;
 	ifstream infile;
@@ -195,32 +189,24 @@ int main() {
 	KeyExpansion(key, expandedKey);
 
 	for (int i = 0; i < paddedMessageLen; i += 16) {
-		AESEncrypt(paddedMessage+i, expandedKey, encryptedMessage+i);
+		AESEncrypt(&paddedMessage[i], expandedKey, &encryptedMessage[i]);
 	}
 
 	cout << "Encrypted message in hex:" << endl;
 	for (int i = 0; i < paddedMessageLen; i++) {
-		cout << hex << (int) encryptedMessage[i];
-		cout << " ";
+		cout << hex << (int)encryptedMessage[i] << " ";
 	}
-
 	cout << endl;
 
-	// Write the encrypted string out to file "message.aes"
-	ofstream outfile;
-	outfile.open("message.aes", ios::out | ios::binary);
-	if (outfile.is_open())
-	{
-		outfile << encryptedMessage;
+	// Write the encrypted string out to file "message.aes" (binary)
+	ofstream outfile("message.aes", ios::out | ios::binary);
+	if (outfile.is_open()) {
+		outfile.write(reinterpret_cast<const char*>(encryptedMessage.data()), paddedMessageLen);
 		outfile.close();
 		cout << "Wrote encrypted message to file message.aes" << endl;
+	} else {
+		cout << "Unable to open file" << endl;
 	}
-
-	else cout << "Unable to open file";
-
-	// Free memory
-	delete[] paddedMessage;
-	delete[] encryptedMessage;
 
 	return 0;
 }
